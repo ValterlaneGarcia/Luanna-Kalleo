@@ -70,11 +70,9 @@
     if(!isTouchDevice || !hasOrientation) return;
 
     const tiltEnvelope = document.getElementById('tiltEnvelope');
-    const tiltFolder = document.getElementById('tiltFolder');
     const bgLayer = document.querySelector('.bg-layer');
 
-    const MAX_TILT = 14;      // graus máximos de inclinação da carta
-    const MAX_TILT_X = 5;     // graus máximos de inclinação frente/trás
+    const MAX_TILT = 16;      // graus máximos de inclinação do cartão (mesmo valor em todos os eixos)
     const MAX_PARALLAX = 8;   // px máximos de deslocamento do fundo
 
     let targetRotate = 0, targetTiltX = 0, targetParX = 0, targetParY = 0;
@@ -91,9 +89,9 @@
 
       if(e.beta !== null){
         if(betaBaseline === null) betaBaseline = e.beta; // calibra a postura inicial de quem segura o celular
-        const betaDelta = Math.max(-30, Math.min(30, e.beta - betaBaseline));
-        targetTiltX = (betaDelta / 30) * MAX_TILT_X;
-        targetParY = -(betaDelta / 30) * MAX_PARALLAX;
+        const betaDelta = Math.max(-45, Math.min(45, e.beta - betaBaseline));
+        targetTiltX = (betaDelta / 45) * MAX_TILT; // frente/trás, mesma intensidade do eixo esquerda/direita
+        targetParY = -(betaDelta / 45) * MAX_PARALLAX;
       }
     }
 
@@ -105,7 +103,6 @@
 
       const cardTransform = 'perspective(700px) rotateZ(' + curRotate.toFixed(2) + 'deg) rotateX(' + (-curTiltX).toFixed(2) + 'deg)';
       if(tiltEnvelope) tiltEnvelope.style.transform = cardTransform;
-      if(tiltFolder) tiltFolder.style.transform = cardTransform;
       if(bgLayer) bgLayer.style.transform = 'translate(' + curParX.toFixed(2) + 'px,' + curParY.toFixed(2) + 'px)';
 
       rafId = requestAnimationFrame(loop);
