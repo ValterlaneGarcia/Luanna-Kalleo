@@ -13,6 +13,7 @@
   const foldSeam = document.getElementById('foldSeam');
   const replayBtn = document.getElementById('replayBtn');
   const addressBlock = document.getElementById('addressBlock');
+  const zoomHint = document.getElementById('zoomHint');
 
   let opened = false;
 
@@ -42,6 +43,7 @@
       folder.classList.add('settled');
       replayBtn.classList.add('show');
       addressBlock.classList.add('show');
+      zoomHint.classList.add('show');
     }, 2500);
   }
 
@@ -53,6 +55,8 @@
     foldSeam.classList.remove('show');
     replayBtn.classList.remove('show');
     addressBlock.classList.remove('show');
+    zoomHint.classList.remove('show');
+    closeZoom();
     envelopeScene.classList.remove('hide');
     envelopeHit.classList.remove('opening','lock');
   }
@@ -60,6 +64,40 @@
   envelopeHit.addEventListener('click', openInvite);
   envelopeHit.addEventListener('touchend', function(e){ e.preventDefault(); openInvite(); }, {passive:false});
   replayBtn.addEventListener('click', resetInvite);
+
+  // ---------- ZOOM: clicar na imagem amplia, clicar de novo volta ao normal ----------
+  const zoomOverlay = document.getElementById('zoomOverlay');
+  const zoomImage = document.getElementById('zoomImage');
+  const zoomableImages = document.querySelectorAll('.page img');
+  let zoomOpen = false;
+
+  function openZoom(img){
+    zoomImage.src = img.src;
+    zoomImage.alt = img.alt || '';
+    zoomOverlay.classList.add('show');
+    zoomOpen = true;
+  }
+
+  function closeZoom(){
+    if(!zoomOpen) return;
+    zoomOverlay.classList.remove('show');
+    zoomOpen = false;
+  }
+
+  zoomableImages.forEach(function(img){
+    img.addEventListener('click', function(e){
+      e.stopPropagation();
+      // clicar na mesma imagem de novo fecha; clicar em outra abre ela ampliada
+      if(zoomOpen && zoomImage.src === img.src){
+        closeZoom();
+      } else {
+        openZoom(img);
+      }
+    });
+  });
+
+  // clicar em qualquer lugar do overlay (fundo ou a própria imagem ampliada) fecha
+  zoomOverlay.addEventListener('click', closeZoom);
 
   // ---------- TILT: a carta acompanha a inclinação do celular ----------
   // Só ativa em dispositivos touch que suportam deviceorientation (celulares/tablets).
@@ -70,40 +108,36 @@
     if(!isTouchDevice || !hasOrientation) return;
 
     const tiltEnvelope = document.getElementById('tiltEnvelope');
-    const bgLayer = document.querySelector('.bg-layer');
 
-    const MAX_TILT = 16;      // graus máximos de inclinação do cartão (mesmo valor em todos os eixos)
-    const MAX_PARALLAX = 8;   // px máximos de deslocamento do fundo
+    const MAX_TILT = 18;      // graus máximos de inclinação do cartão (igual em todos os eixos)
 
-    let targetRotate = 0, targetTiltX = 0, targetParX = 0, targetParY = 0;
-    let curRotate = 0, curTiltX = 0, curParX = 0, curParY = 0;
+    let targetTiltY = 0, targetTiltX = 0;
+    let curTiltY = 0, curTiltX = 0;
     let betaBaseline = null;
     let listening = false;
     let rafId = null;
 
     function onOrientation(e){
-      if(e.gamma === null) return;
-      const gamma = Math.max(-45, Math.min(45, e.gamma)); // esquerda/direita
-      targetRotate = (gamma / 45) * MAX_TILT;
-      targetParX = -(gamma / 45) * MAX_PARALLAX;
+      if(e.gamma !== null){
+        const gamma = Math.max(-45, Math.min(45, e.gamma)); // esquerda/direita
+        targetTiltY = (gamma / 45) * MAX_TILT; // gira o cartão em torno do eixo vertical (esquerda/direita)
+      }
 
       if(e.beta !== null){
         if(betaBaseline === null) betaBaseline = e.beta; // calibra a postura inicial de quem segura o celular
         const betaDelta = Math.max(-45, Math.min(45, e.beta - betaBaseline));
-        targetTiltX = (betaDelta / 45) * MAX_TILT; // frente/trás, mesma intensidade do eixo esquerda/direita
-        targetParY = -(betaDelta / 45) * MAX_PARALLAX;
+        targetTiltX = -(betaDelta / 45) * MAX_TILT; // gira o cartão em torno do eixo horizontal (frente/trás)
       }
     }
 
     function loop(){
-      curRotate += (targetRotate - curRotate) * .12;
-      curTiltX  += (targetTiltX  - curTiltX)  * .12;
-      curParX   += (targetParX   - curParX)   * .08;
-      curParY   += (targetParY   - curParY)   * .08;
+      curTiltY += (targetTiltY - curTiltY) * .12;
+      curTiltX += (targetTiltX - curTiltX) * .12;
 
-      const cardTransform = 'perspective(700px) rotateZ(' + curRotate.toFixed(2) + 'deg) rotateX(' + (-curTiltX).toFixed(2) + 'deg)';
+      // rotateX + rotateY combinados permitem qualquer ângulo, incluindo diagonais
+      // (ex: cima+direita), exatamente como inclinar um cartão físico na mão
+      const cardTransform = 'perspective(700px) rotateX(' + curTiltX.toFixed(2) + 'deg) rotateY(' + curTiltY.toFixed(2) + 'deg)';
       if(tiltEnvelope) tiltEnvelope.style.transform = cardTransform;
-      if(bgLayer) bgLayer.style.transform = 'translate(' + curParX.toFixed(2) + 'px,' + curParY.toFixed(2) + 'px)';
 
       rafId = requestAnimationFrame(loop);
     }
